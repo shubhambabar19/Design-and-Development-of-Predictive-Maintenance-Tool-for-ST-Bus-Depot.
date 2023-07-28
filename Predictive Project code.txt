@@ -1,0 +1,193 @@
+#include <Wire.h>
+#include <Adafruit_Sensor.h> 
+#include <Adafruit_ADXL345_U.h>
+Adafruit_ADXL345_Unified accel = Adafruit_ADXL345_Unified();
+
+#include "HX711.h"
+const int LOADCELL_DOUT_PIN = 2;
+const int LOADCELL_SCK_PIN = 3;
+const int LOADCELL_DOUT_PIN1 = 4;
+const int LOADCELL_SCK_PIN1 = 5;
+int val;
+int noise = 0;
+int tempPin = 0;
+int trig = 12;
+int echo = 11;
+int adctankpress = 0;
+int tankpressure = 0;
+int adctyrepress = 0;
+int tyrepressure = 0;
+
+HX711 scale;
+HX711 scale1;
+void setup()
+{
+  Serial.begin(9600);
+  pinMode(trig, OUTPUT);
+  pinMode(echo, INPUT); 
+  
+  scale.begin(LOADCELL_DOUT_PIN, LOADCELL_SCK_PIN);
+  Serial.println("Before setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());      // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  Serial.println(scale.read_average(20));   // print the average of 20 readings from the ADC
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight (not set yet)
+  Serial.print("get units: \t\t");
+  Serial.println(scale.get_units(5), 1);  // print the average of 5 readings from the ADC minus tare weight (not set) divided           // by the SCALE parameter (not set yet)
+  scale.set_scale(2280.f);                      // this value is obtained by calibrating the scale with known weights; see the README for details
+  scale.tare();               // reset the scale to 0
+  Serial.println("After setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale.read());                 // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  Serial.println(scale.read_average(20));       // print the average of 20 readings from the ADC
+  Serial.print("get value: \t\t");
+  Serial.println(scale.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight, set with tare()
+  Serial.print("get units: \t\t");
+  Serial.println(scale.get_units(5), 1);        // print the average of 5 readings from the ADC minus tare weight, divided
+  Serial.println("Readings:");
+
+
+  
+  scale1.begin(LOADCELL_DOUT_PIN1, LOADCELL_SCK_PIN1);
+  Serial.println("Before setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale1.read());      // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  Serial.println(scale1.read_average(20));   // print the average of 20 readings from the ADC
+  Serial.print("get value: \t\t");
+  Serial.println(scale1.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight (not set yet)
+  Serial.print("get units: \t\t");
+  Serial.println(scale1.get_units(5), 1);  // print the average of 5 readings from the ADC minus tare weight (not set) divided           // by the SCALE parameter (not set yet)
+  scale.set_scale(2280.f);                      // this value is obtained by calibrating the scale with known weights; see the README for details
+  scale.tare();               // reset the scale to 0
+  Serial.println("After setting up the scale:");
+  Serial.print("read: \t\t");
+  Serial.println(scale1.read());                 // print a raw reading from the ADC
+  Serial.print("read average: \t\t");
+  Serial.println(scale1.read_average(20));       // print the average of 20 readings from the ADC
+  Serial.print("get value: \t\t");
+  Serial.println(scale1.get_value(5));   // print the average of 5 readings from the ADC minus the tare weight, set with tare()
+  Serial.print("get units: \t\t");
+  Serial.println(scale1.get_units(5), 1);        // print the average of 5 readings from the ADC minus tare weight, divided
+  Serial.println("Readings:");
+  
+  if(!accel.begin())
+  {
+    Serial.println("No valid sensor found");
+    while(1);
+    }
+    
+}
+
+void oil()
+{
+  long t = 0, h = 0, hp = 0;
+  digitalWrite(trig, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trig, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trig, LOW);
+  t = pulseIn(echo, HIGH);// Calculating distance 
+  h = t / 58;
+  h = h - 6;  // offset correction
+  h = 50 - h;  // oil height, 0 - 50 cm
+  hp = 2 * h;  // distance in %, 0-100 %
+  // Sending to computer
+  Serial.print(hp);// Serial.print(" cm\n");
+  Serial.print("\n");
+
+  if (hp <= 20){
+    Serial.println("Oil is too low needs to change");
+    delay(1000);
+  }
+}
+void vibration()
+{
+  sensors_event_t event; 
+  accel.getEvent(&event);
+  Serial.print("X: "); Serial.print(event.acceleration.x); Serial.print("  ");
+  Serial.print("Y: "); Serial.print(event.acceleration.y); Serial.print("  ");
+  Serial.print("Z: "); Serial.print(event.acceleration.z); Serial.print("  ");
+  Serial.println("m/s^2 ");
+
+  if ((event.acceleration.x > 100)|| (event.acceleration.y > 100) || (event.acceleration.z > 100))
+  {Serial.println("Vibrations are too high maintainance should be done");
+  delay(1000);
+    }
+
+}
+void tempc()
+{
+  val = analogRead(tempPin);
+  float mv = ( val/1024.0)*5000;
+  float cel = mv/10;
+  float farh = (cel*9)/5 + 32;
+  Serial.print("TEMPRATURE = ");
+  Serial.print(cel);
+  Serial.print("*C");
+  Serial.println();
+
+  if (cel > 120){
+    Serial.println(" Temperature is too High ");
+  }
+}
+void noise1()
+{
+  int val;
+  val=analogRead(0);   //connect mic sensor to Analog 0
+  Serial.println(val,DEC);//print the sound value to serial
+  noise = (val,DEC);
+
+  if ( val > 600){
+   Serial.println(" Engine Noise is too high"); 
+  }
+}
+void tyre_pressure()
+{
+  Serial.print("tyre one reading:\t");
+  Serial.print(scale.get_units(), 1);
+  Serial.print("\t| tyre average:\t");
+  Serial.println(scale.get_units(10), 1);
+  adctyrepress = (scale.get_units(10));
+  tyrepressure = map(adctyrepress,0,6000,0, 100);
+
+  if (tyrepressure < 30){
+    Serial.println("tyre pressure is too low");
+    delay(1000);
+
+  scale.power_down();             // put the ADC in sleep mode
+  delay(5000);
+  scale.power_up();
+}
+}
+void tank_pressure()
+{
+  Serial.print("tank one reading:\t");
+  Serial.print(scale1.get_units(), 1);
+  Serial.print("\t| tank average:\t");
+  Serial.println(scale1.get_units(10), 1);
+  adctankpress = (scale1.get_units(10));
+  tankpressure = map(adctankpress,0,6000,0, 100);
+
+  if (tankpressure < 30){
+    Serial.println("Tank pressure is too low");
+    delay(1000);
+  }
+  scale1.power_down();              // put the ADC in sleep mode
+  delay(5000);
+  scale1.power_up();
+}
+
+void loop()
+{
+ oil();
+ vibration();
+ tempc();
+ noise1();
+ tyre_pressure();
+ tank_pressure();
+ 
+}
